@@ -7,7 +7,7 @@ A one-page dashboard of the Video Team's DR (deliverable request) list, by month
 for managers. Goal: understand the month in 5 seconds.
 Dark theme, black + orange (#FF6B1A). Layout follows a dark sidebar + card grid.
 
-- Live site (Vercel): https://vt-dr-dashboard-k7q2-ten.vercel.app  (project `vt-dr-dashboard-k7q2`, id `prj_Y7bt3CWuj6wIG40dWEeRAHVjUB9L`)
+- Live site (Vercel): https://videoteam-dr.vercel.app (also https://vt-dr-dashboard-k7q2-ten.vercel.app)  (project `vt-dr-dashboard-k7q2`, id `prj_Y7bt3CWuj6wIG40dWEeRAHVjUB9L`)
   Deploys automatically on every push to `main` of GitHub `seeseal/sml-dr-dashboard`. Public URL — share only with the people who need it.
 - Private copy (Claude artifact): https://claude.ai/artifact/DLHSwmRFcVA2CTfwppd4vD
 - Artifact slug: `63deee7b-35d6-43b4-87e2-5100c57f23ea`
