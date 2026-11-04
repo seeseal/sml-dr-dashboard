@@ -36,7 +36,15 @@ module.exports = async (req, res) => {
         if (r.status === 429) { await sleep((+r.headers.get("retry-after") || 5) * 1000); continue; }
         if (!r.ok) { missing.push(id); break; }
         const t = await r.json();
-        out[id] = { created: t.created_at, closed: t.completed && t.completion ? t.completion.created_at : null };
+        const done = t.completed && t.completion;
+        out[id] = {
+          created: t.created_at,
+          starts: t.starts_on || null,
+          due: t.due_on || null,
+          closed: done ? t.completion.created_at : null,
+          closedBy: done && t.completion.creator ? t.completion.creator.name : null,
+          assignees: (t.assignees || []).map(a => a.name),
+        };
         break;
       }
       await sleep(250);
