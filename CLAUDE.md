@@ -54,8 +54,13 @@ Never change `index.html` from the task — layout changes are made by hand and 
   the one-time connect, `BASECAMP_REFRESH_TOKEN` (shown once on the callback page). Never put these in chat or the repo.
 - One-time connect: open https://videoteam-dr.vercel.app/api/basecamp/connect → approve → copy the key → add env var → redeploy.
 - The page fetches `/api/basecamp/closed`. A DR counts as **Done if the sheet OR Basecamp says so**.
-  Close date = Basecamp tick-off time; open date = Basecamp to-do creation (falls back to the sheet's Raised date).
-  "Open for" = open date → close date, or → today if still pending. "Closed on time" = ticked off on or before Due.
+  Start = the sheet's **Raised** date (Basecamp creation only if Raised is blank) — 18 DRs link to old, reused
+  to-dos whose creation date is months earlier. Close = Basecamp tick-off time.
+  "Open for" = Raised → tick-off, or → today if still pending. Tick-offs before the Raised date are ignored.
+- **Batch clean-ups are excluded from turnaround**: 5+ to-dos ticked off within 30 minutes (e.g. 28 Oct 10:10–10:23,
+  13 to-dos incl. ones due in May) are bookkeeping, not deliveries. The page says how many were skipped.
+- Figures shown: typical (median) and average time to close, slowest, longest still pending, typical per person.
+  "Closed on time %" was removed: tick-offs lag delivery (median 7 days after due), so it isn't trustworthy yet.
 - Mismatches (ticked off in Basecamp but not Done in sheet, and the reverse) are listed under "To fix in the sheet".
 - Blank status is shown as "Not started"; blank owner as "Not assigned".
 

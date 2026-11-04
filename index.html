@@ -293,7 +293,7 @@
   const odDays=i=> (isOpen(i)&&i.due) ? Math.round((today-i.due)/864e5) : 0;
   const isOD=i=>odDays(i)>0;
   const istDay=iso=>{const d=new Date(new Date(iso).getTime()+330*60000);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());};
-  const openedOn=i=> i.bcCreated ? istDay(i.bcCreated) : (i.raised? +i.raised : null);
+  const openedOn=i=> i.raised ? +i.raised : (i.bcCreated ? istDay(i.bcCreated) : null);
   const daysOpen=i=>{const o=openedOn(i); if(o==null) return null; const end=i.bcClosed?istDay(i.bcClosed):today; return Math.max(0,Math.round((end-o)/864e5));};
   const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
   function applyBC(){
@@ -301,7 +301,16 @@
       const b = BC && i.todo ? BC[i.todo] : null;
       i.bcCreated = b ? b.created : null; i.bcClosed = b ? b.closed : null; i.bcKnown = !!b;
       i.status = (b && b.closed) ? "Done" : i.sheetStatus;
+      i.bcBatch = false;
     }));
+    /* Batch clean-ups: 5+ to-dos ticked off within 30 minutes are bookkeeping, not deliveries.
+       Their tick-off time says nothing about when the work was done, so turnaround skips them. */
+    if(BC){
+      const times=[...new Set(Object.values(BC).filter(v=>v.closed).map(v=>new Date(v.closed).getTime()))].sort((a,b)=>a-b);
+      const batch=new Set(); const W=30*60000;
+      for(let a=0,b=0;b<times.length;b++){ while(times[b]-times[a]>W) a++; if(b-a+1>=5) for(let k=a;k<=b;k++) batch.add(times[k]); }
+      tabs.forEach(t=>t.items.forEach(i=>{ if(i.bcClosed && batch.has(new Date(i.bcClosed).getTime())) i.bcBatch=true; }));
+    }
   }
   const fmt=d=>d? d.getUTCDate()+" "+cap(MS[d.getUTCMonth()]) : "—";
   const pct=(a,b)=>b?Math.round(a*100/b):0;
@@ -425,24 +434,26 @@
   function turnaround(items){
     const host=$("ta"); host.replaceChildren();
     if(!BC){ host.append(el("div","empty", BC===false ? (window.__localPreview ? "Turnaround comes from Basecamp and shows on the live site only." : "Turnaround isn't available right now. It will be back after the next update.") : "Loading turnaround from Basecamp…")); return; }
-    const closed=items.filter(i=>i.bcClosed && openedOn(i)!=null);
+    const closed=items.filter(i=>i.bcClosed && !i.bcBatch && openedOn(i)!=null && istDay(i.bcClosed)>=openedOn(i));
+    const skipped=items.filter(i=>i.bcClosed && i.bcBatch).length;
     if(!closed.length){ host.append(el("div","empty","No DRs closed in Basecamp for this view yet.")); return; }
     const days=closed.map(daysOpen).sort((a,b)=>a-b);
     const avg=Math.round(days.reduce((a,b)=>a+b,0)/days.length*10)/10;
     const med=days[Math.floor(days.length/2)];
-    const withDue=closed.filter(i=>i.due), onTime=withDue.filter(i=>istDay(i.bcClosed)<=+i.due).length;
     const slow=closed.slice().sort((a,b)=>daysOpen(b)-daysOpen(a))[0];
     const w=el("div","ta");
     const tile=(v,l,sub)=>{const t=el("div","t"); t.append(el("b",null,v), el("span",null,l)); if(sub) t.append(el("small",null,sub)); return t;};
-    w.append(tile(plural(avg,"day"),"Average time to close",`Typical: ${plural(med,"day")}`));
-    w.append(tile(withDue.length?pct(onTime,withDue.length)+"%":"—","Closed on time",withDue.length?`${onTime} of ${withDue.length} by their due date`:"No due dates"));
+    w.append(tile(plural(med,"day"),"Typical time to close",`Average: ${plural(avg,"day")}`));
     w.append(tile(plural(daysOpen(slow),"day"),"Slowest to close",slow.name));
+    const pend=items.filter(isOpen).filter(i=>daysOpen(i)!=null).sort((a,b)=>daysOpen(b)-daysOpen(a))[0];
+    w.append(pend ? tile(plural(daysOpen(pend),"day"),"Longest still pending",pend.name) : tile("—","Longest still pending","Nothing pending"));
     const per=new Map(); closed.forEach(i=>i.owners.forEach(o=>{ if(o==="Not assigned") return; const a=per.get(o)||[]; a.push(daysOpen(i)); per.set(o,a); }));
     const pp=el("div","t wide"), list=el("div","ppl");
-    [...per.entries()].map(([k,a])=>[k,a.reduce((x,y)=>x+y,0)/a.length,a.length]).sort((a,b)=>a[1]-b[1]).forEach(([k,v,n])=>{const r=el("div"); r.append(el("span",null,k), el("em",null,`${plural(Math.round(v*10)/10,"day")} avg · ${n} closed`)); list.append(r);});
-    pp.append(el("span",null,"Average time to close, by person")); pp.firstChild.style.marginTop="0"; pp.firstChild.style.marginBottom="10px"; pp.append(list);
+    [...per.entries()].map(([k,a])=>{const s=a.slice().sort((x,y)=>x-y);return [k,s[Math.floor(s.length/2)],a.length];}).sort((a,b)=>a[1]-b[1]).forEach(([k,v,n])=>{const r=el("div"); r.append(el("span",null,k), el("em",null,`${plural(v,"day")} typical · ${n} closed`)); list.append(r);});
+    pp.append(el("span",null,"Typical time to close, by person")); pp.firstChild.style.marginTop="0"; pp.firstChild.style.marginBottom="10px"; pp.append(list);
     w.append(pp); host.append(w);
-    $("ta-n").textContent=`${closed.length} closed DRs · from Basecamp`;
+    if(skipped) host.append(el("p","health",`Not counted: ${plural(skipped,"DR")} ticked off in Basecamp in a batch clean-up (5+ within 30 minutes), so their real close date isn't known.`));
+    $("ta-n").textContent=`${closed.length} closed DRs · raised date → ticked off in Basecamp`;
   }
 
   /* ---------- render ---------- */
