@@ -32,7 +32,7 @@
   "functions": {
     "api/basecamp/closed.js": {
       "maxDuration": 300,
-      "includeFiles": "data.js"
+      "includeFiles": "{data.js,bc_closed.json}"
     }
   }
 }

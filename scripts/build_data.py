@@ -46,12 +46,25 @@ def clean_link(u):
     return u if u.startswith("https://") else None
 
 
+def parse_tab(title):
+    """'November', 'Nov', 'Sept', 'November 2027', 'Nov 2027' -> (month 0-11, year or None); else None."""
+    t = re.match(r"^([A-Za-z]+)\.?(?:\s+(\d{4}))?$", title.strip())
+    if not t:
+        return None
+    w = t.group(1).lower()
+    for i, full in enumerate(MONTHS):
+        if w == full or w == full[:3] or (i == 8 and w == "sept"):
+            return i, (int(t.group(2)) if t.group(2) else None)
+    return None
+
+
 tabs, prev_m, year = [], -1, None
 for ws in wb.worksheets:
     name = ws.title.strip()
-    if name.lower() not in MONTHS:
+    parsed = parse_tab(name)
+    if not parsed:
         continue
-    m = MONTHS.index(name.lower())
+    m, named_year = parsed
     hdr_row = None
     for r in ws.iter_rows(min_row=1, max_row=10, max_col=12):
         if txt(r[0].value) == "DR":
@@ -84,7 +97,9 @@ for ws in wb.worksheets:
             dues.append(g(iD))
     # tab year: most common due-date year with that month, else roll forward from previous tab
     yrs = [d.year for d in dues if d.month == m + 1]
-    if yrs:
+    if named_year:                                  # "January 2027" — the name says the year
+        year = named_year
+    elif yrs:
         year = max(set(yrs), key=yrs.count)
     elif year is None:
         year = datetime.date.today().year
@@ -95,8 +110,9 @@ for ws in wb.worksheets:
         for k, i in (("raised", iR), ("due", iD)):
             if not row[k] and 0 <= i < len(r):
                 row[k] = iso(r[i].value, year)
-    tabs.append({"tab": name, "year": year, "month": m, "hasType": iT >= 0, "rows": rows})
+    tabs.append({"tab": MONTHS[m].capitalize() + ("" if not named_year else " " + str(named_year)), "year": year, "month": m, "hasType": iT >= 0, "rows": rows})
 
+tabs.sort(key=lambda t: (t["year"], t["month"]))
 if not tabs:
     sys.exit("No month tabs found - export format changed? Aborting, site left untouched.")
 

@@ -280,12 +280,13 @@
   });
 
   /* All months = every DR once: a DR carried into later tabs counts once, at its latest status.
-     (Two identical rows inside one tab are kept as two.) */
+     Matched by its Basecamp to-do (so a renamed DR is still one DR); rows without a link match by name + brand.
+     (Two rows inside one tab are kept as two unless they point to the same to-do.) */
   function uniqueAll(){
     const latest=new Map();
     tabs.forEach((t,ti)=>{
       const seen=new Map();
-      t.items.forEach(i=>{const k=i.name.toLowerCase().replace(/\s+/g," ")+"|"+i.brand; if(!seen.has(k)) seen.set(k,[]); seen.get(k).push(i);});
+      t.items.forEach(i=>{const k=i.todo ? "bc:"+i.todo : i.name.toLowerCase().replace(/\s+/g," ")+"|"+i.brand; if(!seen.has(k)) seen.set(k,[]); seen.get(k).push(i);});
       seen.forEach((arr,k)=>latest.set(k,arr));
     });
     return [].concat(...latest.values());
@@ -314,12 +315,16 @@
       i.status = (b && b.closed) ? "Done" : i.sheetStatus;
       i.bcBatch = false;
     }));
-    /* Batch clean-ups: 5+ to-dos ticked off within 30 minutes are bookkeeping, not deliveries.
-       Their tick-off time says nothing about when the work was done, so turnaround skips them. */
+    /* Batch clean-ups: 5+ to-dos ticked off within 30 minutes, where most of them (60%+) were already a week or
+       more past due, are bookkeeping, not deliveries — turnaround skips them. A burst of on-time deliveries is kept. */
     if(BC){
-      const times=[...new Set(Object.values(BC).filter(v=>v.closed).map(v=>new Date(v.closed).getTime()))].sort((a,b)=>a-b);
+      const closed=Object.values(BC).filter(v=>v.closed).map(v=>({t:new Date(v.closed).getTime(), late: v.due ? (istDay(v.closed)-Date.parse(v.due+"T00:00:00Z"))/864e5 >= 7 : false})).sort((a,b)=>a.t-b.t);
       const batch=new Set(); const W=30*60000;
-      for(let a=0,b=0;b<times.length;b++){ while(times[b]-times[a]>W) a++; if(b-a+1>=5) for(let k=a;k<=b;k++) batch.add(times[k]); }
+      for(let a=0,b=0;b<closed.length;b++){
+        while(closed[b].t-closed[a].t>W) a++;
+        const grp=closed.slice(a,b+1);
+        if(grp.length>=5 && grp.filter(x=>x.late).length/grp.length>=0.6) grp.forEach(x=>batch.add(x.t));
+      }
       tabs.forEach(t=>t.items.forEach(i=>{ if(i.bcClosed && batch.has(new Date(i.bcClosed).getTime())) i.bcBatch=true; }));
     }
   }
@@ -463,7 +468,7 @@
     [...per.entries()].map(([k,a])=>{const s=a.slice().sort((x,y)=>x-y);return [k,s[Math.floor(s.length/2)],a.length];}).sort((a,b)=>a[1]-b[1]).forEach(([k,v,n])=>{const r=el("div"); r.append(el("span",null,k), el("em",null,`${plural(v,"day")} typical · ${n} closed`)); list.append(r);});
     pp.append(el("span",null,"Typical time to close, by person")); pp.firstChild.style.marginTop="0"; pp.firstChild.style.marginBottom="10px"; pp.append(list);
     w.append(pp); host.append(w);
-    const nc=[]; if(skipped) nc.push(`${plural(skipped,"DR")} ticked off in a batch clean-up (5+ within 30 minutes)`); if(reusedN) nc.push(`${plural(reusedN,"DR")} on an old, reused Basecamp to-do (created 30+ days before the DR was raised)`);
+    const nc=[]; if(skipped) nc.push(`${plural(skipped,"DR")} ticked off in a batch clean-up (5+ within 30 minutes, mostly long overdue)`); if(reusedN) nc.push(`${plural(reusedN,"DR")} on an old, reused Basecamp to-do (created 30+ days before the DR was raised)`);
     if(nc.length) host.append(el("p","health","Not counted: "+nc.join(" · ")+". Their dates are still shown under Closed DRs."));
     $("ta-n").textContent=`${closed.length} closed DRs · created → ticked off, from Basecamp`;
   }
