@@ -22,8 +22,6 @@ Dark theme, black + orange (#FF6B1A). Layout follows a dark sidebar + card grid.
 | `data.js` | Data only: `window.DR_DATA = {fetchedAt, tabs:[{tab, year, month, hasType, rows:[{name, link, raised, due, brand, assigned, type, status}]}]}`. The only file the daily refresh replaces. |
 | `scripts/build_data.py` | Turns the Excel export of the sheet (or Drive's saved JSON of it) into `data.js`. Keeps **only month tabs** (drops Barter, 10k barter, Lists — those hold a reimbursement note and other non-DR data that must not be published). |
 | `api/basecamp/*.js` | Vercel functions for Basecamp: `connect` + `callback` (one-time login), `closed` (created / ticked-off dates for every linked to-do; edge-cached 6 h). `_lib.js` is shared code, not an endpoint. |
-| `api/basecamp/assigned.js` | Private (needs `?key=` = `DR_SYNC_KEY` env var): open Basecamp to-dos assigned to Cecil Mathew / Prathmesh Shetye. Used by the sheet script. |
-| `sheet-script/AutoDRs.gs` | Google Apps Script pasted into the DR sheet: hourly, adds new Basecamp DRs as rows in the "Auto DRs (test)" tab. |
 | `vercel.json`, `robots.txt` | Static hosting: no-index headers, `data.js` never cached. |
 | `CLAUDE.md` | This file. |
 
@@ -71,16 +69,6 @@ Never change `index.html` from the task — layout changes are made by hand and 
 - Mismatches (ticked off in Basecamp but not Done in sheet, and the reverse) are listed under "To fix in the sheet".
 - Blank status is shown as "Not started"; blank owner as "Not assigned".
 
-## Auto-adding DRs from Basecamp (TEST, started 4 Nov 2026)
-- Goal: any new Basecamp to-do assigned to Cecil or Prathmesh is added to the sheet automatically; the team fills Assigned To / Type / Status later.
-- Sheet script `sheet-script/AutoDRs.gs` runs hourly → calls `/api/basecamp/assigned?key=…` → appends rows to tab **"Auto DRs (test)"**:
-  DR (linked), Raised (Basecamp created), Due (Basecamp due), Brand (from project: 25726179 SUGAR, 25838882 Quench, 27553285 Pop, 42300492 Molten), Status "Not Started";
-  also "Assigned in Basecamp", project, added-on. Skips to-dos already linked anywhere in the sheet; only to-dos created on/after the script's START_DATE.
-- The dashboard ignores this tab (not a month name), so the test can't affect the live numbers.
-- `DR_SYNC_KEY`: a passphrase Cecil chose, set both in Vercel env vars and in the Apps Script's Script properties. Never in chat or the repo.
-- To change who's watched: edit `WATCH` in `api/basecamp/assigned.js` (Basecamp display names).
-- After the test: point the script's `TAB` at the current month tab (or derive it from the date).
-
 ## Team changes
 `TEAM_EXITS` at the top of the script in `index.html` lists people who have left:
 `{name:"Jatin", year:2026, month:10}` (month 10 = November). From that month on their name is removed
@@ -95,6 +83,7 @@ Months before keep their name. To add someone, add a line there and republish `i
 
 ## Working rules (from Cecil)
 - Make changes locally in the Dashboard Tracker folder first; push to Vercel only when Cecil says it's final.
+- Sheet automation (auto-adding DRs from Basecamp) lives entirely in the Google Sheet's Apps Script — do not add anything to the Vercel site for it.
 - Owner/assignee names come from the sheet's Assigned To. Don't show them where Cecil has asked them removed (Closed DRs).
 - Wording: plain and short — Done / Pending / Late, "Not started", "Not assigned".
 
