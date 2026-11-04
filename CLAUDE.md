@@ -93,9 +93,12 @@ Team rule (Cecil, 4 Nov): **nobody adds or copies DR rows by hand** — Basecamp
   - `BASELINE_V2` — when the baseline was taken (4 Nov 2026, 16:36). Before it, every to-do that was already
     assigned (29) was marked as seen so the backlog never floods in. If this property is deleted, the next run
     re-takes the baseline instead of adding anything.
+  - `SEEDED_PEOPLE` — watched people whose backlog has been marked as seen. **Adding someone to `CFG.watch` is safe:**
+    on the next run their to-dos open at that moment are marked as seen (not added); only DRs assigned to them later
+    come in. Manish: 38 open to-dos marked as seen on 4 Nov 17:16, 0 added.
   - `ALERT_…` — when each kind of failure was last emailed (for the once-a-day limit).
 - Config at the top of the code (`CFG`):
-  `watch` (Basecamp names: "Cecil Mathew", "Prathmesh Shetye"), `alertTo` (video@vellvette.com),
+  `watch` (Basecamp names: "Cecil Mathew", "Prathmesh Shetye", "Manish Mistry" — Manish added 4 Nov 17:16), `alertTo` (video@vellvette.com),
   `legacyYear` (2026), `exited` ([{name:"Jatin", from:"2026-11"}]).
 
 ### Triggers (Apps Script → Triggers)
