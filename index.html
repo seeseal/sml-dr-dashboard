@@ -106,6 +106,16 @@
   .tile b{display:block;font-size:24px;font-weight:600}
   .tile span{font-size:12px;color:var(--muted)}
   .empty{color:var(--dim);font-size:13px;padding:18px 0}
+  .ta{display:grid;grid-template-columns:repeat(3,1fr) 1.4fr;gap:10px}
+  .ta .t{background:var(--panel2);border-radius:14px;padding:16px;min-width:0}
+  .ta .t b{display:block;font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+  .ta .t span{display:block;font-size:12px;color:var(--muted);margin-top:6px}
+  .ta .t small{display:block;font-size:12px;color:var(--dim);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ta .ppl{display:flex;flex-direction:column;gap:8px;font-size:13px}
+  .ta .ppl div{display:flex;justify-content:space-between;gap:10px}
+  .ta .ppl em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums}
+  @media (max-width:1100px){.ta{grid-template-columns:repeat(3,1fr)}.ta .t.wide{grid-column:1/-1}}
+  @media (max-width:760px){.ta{grid-template-columns:1fr 1fr}}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;font-weight:500;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.08em;padding:0 10px 10px}
   td{padding:12px 10px;border-top:1px solid var(--line);vertical-align:middle}
@@ -166,6 +176,11 @@
       <div class="strip" id="strip"></div>
     </section>
 
+    <section class="card sec">
+      <h3>Turnaround <small id="ta-n">From Basecamp</small></h3>
+      <div id="ta"></div>
+    </section>
+
     <section class="grid row2 sec">
       <div class="card">
         <h3>Brands <small id="brand-n">—</small></h3>
@@ -201,6 +216,11 @@
      Earlier months keep their name. month: 0 = Jan ... 10 = Nov */
   const TEAM_EXITS = [ {name:"Jatin", year:2026, month:10} ];
 
+  /* Basecamp: a DR counts as Done if the sheet OR Basecamp says so. Close date and
+     open date come from Basecamp (to-do created / ticked off). */
+  const BC_URL = "/api/basecamp/closed";
+  let BC = null;          // {todoId: {created, closed}} once loaded
+
   const D = window.DR_DATA;
   const MN = ["january","february","march","april","may","june","july","august","september","october","november","december"];
   const MS = MN.map(m=>m.slice(0,3));
@@ -217,7 +237,7 @@
     if(t==="waiting") return "Waiting";
     if(t==="na"||t==="scrapped") return "Dropped";
     if(t==="not started") return "Not started";
-    return t ? s.trim() : "No status";
+    return t ? s.trim() : "Not started";
   }
   function normType(s){
     const t=(s||"").trim().toLowerCase();
@@ -244,8 +264,8 @@
       const before=owners.length;
       owners=owners.filter(o=>!exitedBy(o,year,tm));
       return {
-        name:r.name, link:r.link, raised:pdate(r.raised), due:pdate(r.due),
-        brand:normBrand(r.brand), owners: owners.length?owners:["No owner"], orphaned: before>0&&owners.length===0,
+        name:r.name, link:r.link, todo:(r.link||"").match(/\/todos\/(\d+)/)?.[1]||null, sheetStatus:normStatus(r.status), raised:pdate(r.raised), due:pdate(r.due),
+        brand:normBrand(r.brand), owners: owners.length?owners:["Not assigned"], orphaned: before>0&&owners.length===0,
         type: tab.hasType ? normType(r.type) : null, status:normStatus(r.status), tab:tabs.length
       };
     });
@@ -272,6 +292,17 @@
   const isDone=i=>i.status==="Done", isScr=i=>i.status==="Dropped", isOpen=i=>!isDone(i)&&!isScr(i);
   const odDays=i=> (isOpen(i)&&i.due) ? Math.round((today-i.due)/864e5) : 0;
   const isOD=i=>odDays(i)>0;
+  const istDay=iso=>{const d=new Date(new Date(iso).getTime()+330*60000);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());};
+  const openedOn=i=> i.bcCreated ? istDay(i.bcCreated) : (i.raised? +i.raised : null);
+  const daysOpen=i=>{const o=openedOn(i); if(o==null) return null; const end=i.bcClosed?istDay(i.bcClosed):today; return Math.max(0,Math.round((end-o)/864e5));};
+  const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
+  function applyBC(){
+    tabs.forEach(t=>t.items.forEach(i=>{
+      const b = BC && i.todo ? BC[i.todo] : null;
+      i.bcCreated = b ? b.created : null; i.bcClosed = b ? b.closed : null; i.bcKnown = !!b;
+      i.status = (b && b.closed) ? "Done" : i.sheetStatus;
+    }));
+  }
   const fmt=d=>d? d.getUTCDate()+" "+cap(MS[d.getUTCMonth()]) : "—";
   const pct=(a,b)=>b?Math.round(a*100/b):0;
   const tip=$("tip");
@@ -327,7 +358,7 @@
       if(!m.has(k)) m.set(k,{k,total:0,done:0,od:0});
       const g=m.get(k); g.total++; if(isDone(i)) g.done++; if(isOD(i)) g.od++;
     }));
-    return [...m.values()].sort((a,b)=>(a.k==="No owner")-(b.k==="No owner")||b.total-a.total);
+    return [...m.values()].sort((a,b)=>(a.k==="Not assigned")-(b.k==="Not assigned")||b.total-a.total);
   }
 
   /* ---------- month-on-month strip ---------- */
@@ -369,7 +400,7 @@
   /* ---------- donut ---------- */
   function donut(items){
     const host=$("donut"); host.replaceChildren();
-    const order=[["Done","#FF6B1A"],["In review","#FF9A5C"],["In progress","#FFC79E"],["Waiting","#8C8C94"],["Not started","#4A4A52"],["No status","#2E2E33"],["Dropped","#1F1F23"]];
+    const order=[["Done","#FF6B1A"],["In review","#FF9A5C"],["In progress","#FFC79E"],["Waiting","#8C8C94"],["Not started","#4A4A52"],["Dropped","#1F1F23"]];
     const counts=order.map(([k,c])=>({k,c,n:items.filter(i=>i.status===k).length})).filter(x=>x.n);
     const other=items.filter(i=>!order.some(o=>o[0]===i.status)).length; if(other) counts.push({k:"Other",c:"#333",n:other});
     const tot=items.length||1, R=62, C=2*Math.PI*R, ns="http://www.w3.org/2000/svg";
@@ -388,6 +419,30 @@
     const lg=el("div","legend"); lg.style.flexWrap="wrap"; lg.style.justifyContent="center"; lg.style.marginTop="14px";
     counts.forEach(s=>{const sp=el("span",null,`${s.k} ${s.n}`); sp.style.setProperty("--c",s.c); lg.append(sp);});
     host.append(lg);
+  }
+
+  /* ---------- turnaround ---------- */
+  function turnaround(items){
+    const host=$("ta"); host.replaceChildren();
+    if(!BC){ host.append(el("div","empty", BC===false ? (window.__localPreview ? "Turnaround comes from Basecamp and shows on the live site only." : "Turnaround isn't available right now. It will be back after the next update.") : "Loading turnaround from Basecamp…")); return; }
+    const closed=items.filter(i=>i.bcClosed && openedOn(i)!=null);
+    if(!closed.length){ host.append(el("div","empty","No DRs closed in Basecamp for this view yet.")); return; }
+    const days=closed.map(daysOpen).sort((a,b)=>a-b);
+    const avg=Math.round(days.reduce((a,b)=>a+b,0)/days.length*10)/10;
+    const med=days[Math.floor(days.length/2)];
+    const withDue=closed.filter(i=>i.due), onTime=withDue.filter(i=>istDay(i.bcClosed)<=+i.due).length;
+    const slow=closed.slice().sort((a,b)=>daysOpen(b)-daysOpen(a))[0];
+    const w=el("div","ta");
+    const tile=(v,l,sub)=>{const t=el("div","t"); t.append(el("b",null,v), el("span",null,l)); if(sub) t.append(el("small",null,sub)); return t;};
+    w.append(tile(plural(avg,"day"),"Average time to close",`Typical: ${plural(med,"day")}`));
+    w.append(tile(withDue.length?pct(onTime,withDue.length)+"%":"—","Closed on time",withDue.length?`${onTime} of ${withDue.length} by their due date`:"No due dates"));
+    w.append(tile(plural(daysOpen(slow),"day"),"Slowest to close",slow.name));
+    const per=new Map(); closed.forEach(i=>i.owners.forEach(o=>{ if(o==="Not assigned") return; const a=per.get(o)||[]; a.push(daysOpen(i)); per.set(o,a); }));
+    const pp=el("div","t wide"), list=el("div","ppl");
+    [...per.entries()].map(([k,a])=>[k,a.reduce((x,y)=>x+y,0)/a.length,a.length]).sort((a,b)=>a[1]-b[1]).forEach(([k,v,n])=>{const r=el("div"); r.append(el("span",null,k), el("em",null,`${plural(Math.round(v*10)/10,"day")} avg · ${n} closed`)); list.append(r);});
+    pp.append(el("span",null,"Average time to close, by person")); pp.firstChild.style.marginTop="0"; pp.firstChild.style.marginBottom="10px"; pp.append(list);
+    w.append(pp); host.append(w);
+    $("ta-n").textContent=`${closed.length} closed DRs · from Basecamp`;
   }
 
   /* ---------- render ---------- */
@@ -418,7 +473,7 @@
     $("headline").textContent = !tot ? "No DRs for this filter." :
       `${dn} of ${tot} DRs done (${pct(dn,tot)}%). ` + (od.length ? `${od.length} ${od.length>1?"are":"is"} late.` : op.length ? `${op.length} pending, none late.` : "Nothing pending.");
 
-    strip(); brandCards(); donut(items);
+    strip(); turnaround(items); brandCards(); donut(items);
     bars($("team"), groupBy(items,i=>i.owners));
 
     const th=$("type"); th.replaceChildren();
@@ -437,7 +492,7 @@
     if(!list.length){ ah.append(el("div","empty","Nothing pending. All DRs here are done.")); }
     else{
       const tb=el("table"), hd=el("tr");
-      [["DR",""],["Brand","hide-m"],["Owner",""],["Due","hide-m"],["Status","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
+      [["DR",""],["Brand","hide-m"],["Owner",""],["Open for","hide-m"],["Due","hide-m"],["Status","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
       tb.append(el("thead")); tb.tHead.append(hd); const body=el("tbody"); tb.append(body);
       let showAll=false;
       const draw=()=>{
@@ -446,7 +501,7 @@
           const tr=el("tr"), d=odDays(i);
           const nc=el("td","dr");
           if(i.link){const a=el("a","drl",i.name); a.href=i.link; a.target="_blank"; a.rel="noopener"; a.title="Open in Basecamp"; a.append(el("span","ext","↗")); nc.append(a);} else nc.textContent=i.name;
-          tr.append(nc, el("td","hide-m",i.brand), el("td",null,i.owners.join(", ")), el("td","hide-m",fmt(i.due)), el("td","hide-m",i.status));
+          tr.append(nc, el("td","hide-m",i.brand), el("td",null,i.owners.join(", ")), el("td","hide-m",daysOpen(i)==null?"—":plural(daysOpen(i),"day")), el("td","hide-m",fmt(i.due)), el("td","hide-m",i.status));
           const tc=el("td","r"); tc.append(el("span","tag"+(d>0?" od":""), d>0?`${d} day${d>1?"s":""} late`: d===0&&i.due?"Due today":i.due?`Due in ${-d} day${-d>1?"s":""}`:"No due date"));
           tr.append(tc); body.append(tr);
         });
@@ -456,14 +511,20 @@
     }
 
     const orph=items.filter(i=>i.orphaned&&isOpen(i)).length;
-    const unowned=items.filter(i=>i.owners[0]==="No owner").length-items.filter(i=>i.orphaned).length;
-    const nost=items.filter(i=>i.status==="No status").length, nodue=items.filter(i=>!i.due).length;
+    const unowned=items.filter(i=>i.owners[0]==="Not assigned").length-items.filter(i=>i.orphaned).length;
+    const nodue=items.filter(i=>!i.due).length;
     const notes=[]; if(orph) notes.push(`${orph} pending DR${orph>1?"s":""} need${orph>1?"":"s"} a new owner (person has left)`);
-    if(unowned>0) notes.push(`${unowned} have no owner`); if(nost) notes.push(`${nost} have no status`); if(nodue) notes.push(`${nodue} ${nodue>1?"have":"has"} no due date`);
+    if(unowned>0) notes.push(`${unowned} not assigned`);
+    if(BC){ const a=items.filter(i=>i.bcKnown&&i.bcClosed&&i.sheetStatus!=="Done").length, b=items.filter(i=>i.bcKnown&&!i.bcClosed&&i.sheetStatus==="Done").length;
+      if(a) notes.push(`${a} ticked off in Basecamp but not marked Done in the sheet`); if(b) notes.push(`${b} marked Done in the sheet but still open in Basecamp`); } if(nodue) notes.push(`${nodue} ${nodue>1?"have":"has"} no due date`);
     const hEl=$("health"); hEl.replaceChildren();
     if(notes.length){ hEl.append(el("b",null,"To fix in the sheet: "), document.createTextNode(notes.join(" · ")+". Fixes show here the next morning.")); }
   }
-  render();
+  applyBC(); render();
+  const useBC = j => { BC = j && j.ok ? j.todos : false; applyBC(); render(); };
+  if (window.BC_DATA) useBC(window.BC_DATA);
+  else if (location.protocol.startsWith("http")) fetch(BC_URL).then(r=>r.ok?r.json():null).then(useBC).catch(()=>useBC(null));
+  else { BC=false; window.__localPreview=true; applyBC(); render(); }
 })();
 </script>
 </body>

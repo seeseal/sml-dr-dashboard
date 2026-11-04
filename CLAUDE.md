@@ -21,6 +21,7 @@ Dark theme, black + orange (#FF6B1A). Layout follows a dark sidebar + card grid.
 | `index.html` | The whole page: layout, styles, all calculations, charts. No libraries. |
 | `data.js` | Data only: `window.DR_DATA = {fetchedAt, tabs:[{tab, year, month, hasType, rows:[{name, link, raised, due, brand, assigned, type, status}]}]}`. The only file the daily refresh replaces. |
 | `scripts/build_data.py` | Turns the Excel export of the sheet (or Drive's saved JSON of it) into `data.js`. Keeps **only month tabs** (drops Barter, 10k barter, Lists — those hold a reimbursement note and other non-DR data that must not be published). |
+| `api/basecamp/*.js` | Vercel functions for Basecamp: `connect` + `callback` (one-time login), `closed` (created / ticked-off dates for every linked to-do; edge-cached 6 h). `_lib.js` is shared code, not an endpoint. |
 | `vercel.json`, `robots.txt` | Static hosting: no-index headers, `data.js` never cached. |
 | `CLAUDE.md` | This file. |
 
@@ -39,17 +40,29 @@ Never change `index.html` from the task — layout changes are made by hand and 
 - Only the left-hand DR columns are read; the "Quick View" summary blocks on the right of the sheet are ignored (their formulas don't add up — e.g. Oct shows Done 47 + In Progress 5 + Open 12 + Scrapped 4 = 68 against a total of 60).
 - Dates come from the Excel export as real dates with years. Formula cells (e.g. a row that is `=A82`) are read as their values.
 - DR names link to their Basecamp to-do (the hyperlink on the name cell in the sheet).
-- Status: Done/Approved → **Done**. NA/Scrapped → **Dropped** (not counted as pending or late). Blank → "No status" (counted as pending). Page wording: Done / Pending / Late; "In review" = Pending Review in the sheet.
+- Status: Done/Approved → **Done**. NA/Scrapped → **Dropped** (not counted as pending or late). Blank → "Not started" (counted as pending). Page wording: Done / Pending / Late; "In review" = Pending Review in the sheet.
 - **Overdue** = open and due date before today (IST, at viewing time).
-- Assigned To with several names ("Jatin, Cecil") counts for each person. Blank → "No owner".
+- Assigned To with several names ("Jatin, Cecil") counts for each person. Blank → "Not assigned".
 - Brand normalised: Pop → SUGAR POP, Quench → QUENCH; blank brand → "No brand" (June tab has no brands filled).
 - **All months** view counts each DR once: a DR carried into later tabs is counted at its latest tab/status. Month cards show per-tab counts with change vs previous month.
 - Brand filter (pills, or tap a brand card) applies to the whole page.
 
+## Basecamp turnaround (live since 4 Nov 2026)
+- Basecamp app "Video Team DR Dashboard" registered at launchpad.37signals.com/integrations.
+  Redirect URI: https://videoteam-dr.vercel.app/api/basecamp/callback. Account id 3985435.
+- Vercel env vars (Production, Sensitive): `BASECAMP_CLIENT_ID`, `BASECAMP_CLIENT_SECRET`, then after
+  the one-time connect, `BASECAMP_REFRESH_TOKEN` (shown once on the callback page). Never put these in chat or the repo.
+- One-time connect: open https://videoteam-dr.vercel.app/api/basecamp/connect → approve → copy the key → add env var → redeploy.
+- The page fetches `/api/basecamp/closed`. A DR counts as **Done if the sheet OR Basecamp says so**.
+  Close date = Basecamp tick-off time; open date = Basecamp to-do creation (falls back to the sheet's Raised date).
+  "Open for" = open date → close date, or → today if still pending. "Closed on time" = ticked off on or before Due.
+- Mismatches (ticked off in Basecamp but not Done in sheet, and the reverse) are listed under "To fix in the sheet".
+- Blank status is shown as "Not started"; blank owner as "Not assigned".
+
 ## Team changes
 `TEAM_EXITS` at the top of the script in `index.html` lists people who have left:
 `{name:"Jatin", year:2026, month:10}` (month 10 = November). From that month on their name is removed
-from DRs; a DR with no one left shows as "No owner" and is flagged under "Gaps in the sheet" as needing a new owner.
+from DRs; a DR with no one left shows as "Not assigned" and is flagged under "Gaps in the sheet" as needing a new owner.
 Months before keep their name. To add someone, add a line there and republish `index.html`.
 
 ## Known data gaps (worth fixing in the sheet)
