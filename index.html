@@ -101,6 +101,7 @@
   .seg{height:100%}
   .tag{display:inline-block;font-size:11px;padding:3px 9px;border-radius:999px;background:var(--panel2);color:var(--muted);white-space:nowrap}
   .tag.od{background:var(--bad-soft);color:#FF8587}
+  .tag.ok{background:rgba(123,216,143,.12);color:#9BE3AC}
   .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px}
   .tile{background:var(--panel2);border-radius:12px;padding:14px 12px}
   .tile b{display:block;font-size:24px;font-weight:600}
@@ -202,6 +203,12 @@
         <h3>Pending DRs <small id="att-n">—</small></h3>
         <div id="att"></div>
       </div>
+    </section>
+    <section class="sec">
+      <div class="card">
+        <h3>Closed DRs <small id="cl-n">—</small></h3>
+        <div id="cl"></div>
+      </div>
       <p class="health" id="health"></p>
     </section>
   </main>
@@ -264,7 +271,7 @@
       const before=owners.length;
       owners=owners.filter(o=>!exitedBy(o,year,tm));
       return {
-        name:r.name, link:r.link, todo:(r.link||"").match(/\/todos\/(\d+)/)?.[1]||null, sheetStatus:normStatus(r.status), raised:pdate(r.raised), due:pdate(r.due),
+        name:r.name, link:r.link, sheetRaised:pdate(r.raised), sheetDue:pdate(r.due), todo:(r.link||"").match(/\/todos\/(\d+)/)?.[1]||null, sheetStatus:normStatus(r.status), raised:pdate(r.raised), due:pdate(r.due),
         brand:normBrand(r.brand), owners: owners.length?owners:["Not assigned"], orphaned: before>0&&owners.length===0,
         type: tab.hasType ? normType(r.type) : null, status:normStatus(r.status), tab:tabs.length
       };
@@ -293,13 +300,17 @@
   const odDays=i=> (isOpen(i)&&i.due) ? Math.round((today-i.due)/864e5) : 0;
   const isOD=i=>odDays(i)>0;
   const istDay=iso=>{const d=new Date(new Date(iso).getTime()+330*60000);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());};
-  const openedOn=i=> i.raised ? +i.raised : (i.bcCreated ? istDay(i.bcCreated) : null);
+  const openedOn=i=> i.raised ? +i.raised : null;
   const daysOpen=i=>{const o=openedOn(i); if(o==null) return null; const end=i.bcClosed?istDay(i.bcClosed):today; return Math.max(0,Math.round((end-o)/864e5));};
   const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
   function applyBC(){
     tabs.forEach(t=>t.items.forEach(i=>{
       const b = BC && i.todo ? BC[i.todo] : null;
       i.bcCreated = b ? b.created : null; i.bcClosed = b ? b.closed : null; i.bcKnown = !!b;
+      i.closedBy = b ? b.closedBy : null;
+      i.raised = b && b.created ? new Date(istDay(b.created)) : i.sheetRaised;   // Basecamp first, sheet as fallback
+      i.due = b && b.due ? pdate(b.due) : i.sheetDue;
+      i.reused = !!(b && b.created && i.sheetRaised && (+i.sheetRaised - istDay(b.created)) > 30*864e5);
       i.status = (b && b.closed) ? "Done" : i.sheetStatus;
       i.bcBatch = false;
     }));
@@ -434,8 +445,8 @@
   function turnaround(items){
     const host=$("ta"); host.replaceChildren();
     if(!BC){ host.append(el("div","empty", BC===false ? (window.__localPreview ? "Turnaround comes from Basecamp and shows on the live site only." : "Turnaround isn't available right now. It will be back after the next update.") : "Loading turnaround from Basecamp…")); return; }
-    const closed=items.filter(i=>i.bcClosed && !i.bcBatch && openedOn(i)!=null && istDay(i.bcClosed)>=openedOn(i));
-    const skipped=items.filter(i=>i.bcClosed && i.bcBatch).length;
+    const closed=items.filter(i=>i.bcClosed && !i.bcBatch && !i.reused && openedOn(i)!=null && istDay(i.bcClosed)>=openedOn(i));
+    const skipped=items.filter(i=>i.bcClosed && i.bcBatch).length, reusedN=items.filter(i=>i.bcClosed && i.reused && !i.bcBatch).length;
     if(!closed.length){ host.append(el("div","empty","No DRs closed in Basecamp for this view yet.")); return; }
     const days=closed.map(daysOpen).sort((a,b)=>a-b);
     const avg=Math.round(days.reduce((a,b)=>a+b,0)/days.length*10)/10;
@@ -452,8 +463,45 @@
     [...per.entries()].map(([k,a])=>{const s=a.slice().sort((x,y)=>x-y);return [k,s[Math.floor(s.length/2)],a.length];}).sort((a,b)=>a[1]-b[1]).forEach(([k,v,n])=>{const r=el("div"); r.append(el("span",null,k), el("em",null,`${plural(v,"day")} typical · ${n} closed`)); list.append(r);});
     pp.append(el("span",null,"Typical time to close, by person")); pp.firstChild.style.marginTop="0"; pp.firstChild.style.marginBottom="10px"; pp.append(list);
     w.append(pp); host.append(w);
-    if(skipped) host.append(el("p","health",`Not counted: ${plural(skipped,"DR")} ticked off in Basecamp in a batch clean-up (5+ within 30 minutes), so their real close date isn't known.`));
-    $("ta-n").textContent=`${closed.length} closed DRs · raised date → ticked off in Basecamp`;
+    const nc=[]; if(skipped) nc.push(`${plural(skipped,"DR")} ticked off in a batch clean-up (5+ within 30 minutes)`); if(reusedN) nc.push(`${plural(reusedN,"DR")} on an old, reused Basecamp to-do (created 30+ days before the DR was raised)`);
+    if(nc.length) host.append(el("p","health","Not counted: "+nc.join(" · ")+". Their dates are still shown under Closed DRs."));
+    $("ta-n").textContent=`${closed.length} closed DRs · created → ticked off, from Basecamp`;
+  }
+
+  function drCell(i){
+    const nc=el("td","dr");
+    if(i.link){const a=el("a","drl",i.name); a.href=i.link; a.target="_blank"; a.rel="noopener"; a.title="Open in Basecamp"; a.append(el("span","ext","↗")); nc.append(a);} else nc.textContent=i.name;
+    return nc;
+  }
+  const fmtDT=iso=>{const d=new Date(iso); return d.toLocaleDateString("en-IN",{day:"numeric",month:"short",timeZone:"Asia/Kolkata"});};
+
+  /* ---------- closed DRs ---------- */
+  function closedTable(items){
+    const host=$("cl"); host.replaceChildren();
+    if(!BC){ host.append(el("div","empty", BC===false ? (window.__localPreview ? "Closed dates come from Basecamp and show on the live site only." : "Closed dates aren't available right now.") : "Loading from Basecamp…")); $("cl-n").textContent=""; return; }
+    const list=items.filter(i=>i.bcClosed).sort((a,b)=>new Date(b.bcClosed)-new Date(a.bcClosed));
+    $("cl-n").textContent= list.length ? "Most recently closed first" : "";
+    if(!list.length){ host.append(el("div","empty","No DRs ticked off in Basecamp for this view yet.")); return; }
+    const tb=el("table"), hd=el("tr");
+    [["DR",""],["Brand","hide-m"],["Owner","hide-m"],["Created","hide-m"],["Due","hide-m"],["Closed",""],["Closed by","hide-m"],["Took","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
+    tb.append(el("thead")); tb.tHead.append(hd); const body=el("tbody"); tb.append(body);
+    let showAll=false;
+    const draw=()=>{
+      body.replaceChildren();
+      (showAll?list:list.slice(0,10)).forEach(i=>{
+        const tr=el("tr"), cd=istDay(i.bcClosed), took=openedOn(i)!=null?Math.round((cd-openedOn(i))/864e5):null;
+        tr.append(drCell(i), el("td","hide-m",i.brand), el("td","hide-m",i.owners.join(", ")), el("td","hide-m",fmt(i.raised)), el("td","hide-m",fmt(i.due)),
+          el("td",null,fmtDT(i.bcClosed)), el("td","hide-m",i.closedBy||"—"), el("td","hide-m",took==null||took<0?"—":plural(took,"day")));
+        const tc=el("td","r"); let tag;
+        if(i.bcBatch) tag=el("span","tag","Batch clean-up");
+        else if(i.due){ const late=Math.round((cd-+i.due)/864e5); tag=el("span","tag"+(late>0?" od":" ok"), late>0?`${plural(late,"day")} late`:late===0?"On due date":`${plural(-late,"day")} early`); }
+        else tag=el("span","tag","No due date");
+        if(i.reused) tag.title="Old, reused Basecamp to-do: created date may not be when this DR started";
+        tc.append(tag); tr.append(tc); body.append(tr);
+      });
+    };
+    draw(); host.append(tb);
+    if(list.length>10){const m=el("button","more",`Show all ${list.length}`); m.type="button"; m.onclick=()=>{showAll=!showAll; m.textContent=showAll?"Show less":`Show all ${list.length}`; draw();}; host.append(m);}
   }
 
   /* ---------- render ---------- */
@@ -503,16 +551,14 @@
     if(!list.length){ ah.append(el("div","empty","Nothing pending. All DRs here are done.")); }
     else{
       const tb=el("table"), hd=el("tr");
-      [["DR",""],["Brand","hide-m"],["Owner",""],["Open for","hide-m"],["Due","hide-m"],["Status","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
+      [["DR",""],["Brand","hide-m"],["Owner",""],["Created","hide-m"],["Due","hide-m"],["Open for","hide-m"],["Status","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
       tb.append(el("thead")); tb.tHead.append(hd); const body=el("tbody"); tb.append(body);
       let showAll=false;
       const draw=()=>{
         body.replaceChildren();
         (showAll?list:list.slice(0,8)).forEach(i=>{
           const tr=el("tr"), d=odDays(i);
-          const nc=el("td","dr");
-          if(i.link){const a=el("a","drl",i.name); a.href=i.link; a.target="_blank"; a.rel="noopener"; a.title="Open in Basecamp"; a.append(el("span","ext","↗")); nc.append(a);} else nc.textContent=i.name;
-          tr.append(nc, el("td","hide-m",i.brand), el("td",null,i.owners.join(", ")), el("td","hide-m",daysOpen(i)==null?"—":plural(daysOpen(i),"day")), el("td","hide-m",fmt(i.due)), el("td","hide-m",i.status));
+          tr.append(drCell(i), el("td","hide-m",i.brand), el("td",null,i.owners.join(", ")), el("td","hide-m",fmt(i.raised)), el("td","hide-m",fmt(i.due)), el("td","hide-m",daysOpen(i)==null?"—":plural(daysOpen(i),"day")), el("td","hide-m",i.status));
           const tc=el("td","r"); tc.append(el("span","tag"+(d>0?" od":""), d>0?`${d} day${d>1?"s":""} late`: d===0&&i.due?"Due today":i.due?`Due in ${-d} day${-d>1?"s":""}`:"No due date"));
           tr.append(tc); body.append(tr);
         });
@@ -521,6 +567,7 @@
       if(list.length>8){const m=el("button","more",`Show all ${list.length}`); m.type="button"; m.onclick=()=>{showAll=!showAll; m.textContent=showAll?"Show less":`Show all ${list.length}`; draw();}; ah.append(m);}
     }
 
+    closedTable(items);
     const orph=items.filter(i=>i.orphaned&&isOpen(i)).length;
     const unowned=items.filter(i=>i.owners[0]==="Not assigned").length-items.filter(i=>i.orphaned).length;
     const nodue=items.filter(i=>!i.due).length;
