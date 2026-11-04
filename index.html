@@ -551,7 +551,7 @@
     if(!list.length){ ah.append(el("div","empty","Nothing pending. All DRs here are done.")); }
     else{
       const tb=el("table"), hd=el("tr");
-      [["DR",""],["Brand","hide-m"],["Owner",""],["Created","hide-m"],["Due","hide-m"],["Open for","hide-m"],["Status","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
+      [["DR",""],["Brand","hide-m"],["Assigned",""],["Created","hide-m"],["Due","hide-m"],["Open for","hide-m"],["Status","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
       tb.append(el("thead")); tb.tHead.append(hd); const body=el("tbody"); tb.append(body);
       let showAll=false;
       const draw=()=>{
