@@ -62,7 +62,8 @@ Never change `index.html` from the task — layout changes are made by hand and 
   sheet's Raised date, so their Created date isn't when the DR started. They still appear in Closed DRs.
 - **Batch clean-ups are excluded from turnaround**: 5+ to-dos ticked off within 30 minutes (e.g. 28 Oct 10:10–10:23,
   13 to-dos incl. ones due in May) are bookkeeping, not deliveries. The page says how many were skipped.
-- Closed DRs table: DR, brand, owner, created, due, closed, closed by, days taken, and early/late vs due (batch clean-ups tagged).
+- Closed DRs table: DR, brand, created, due, closed, closed by, days taken, and early/late vs due (batch clean-ups tagged). No owner column (removed at Cecil's request).
+- Pending DRs table: DR, brand, **Assigned** (the sheet's Assigned To), created, due, open for, status, late/due-in.
 - Figures shown: typical (median) and average time to close, slowest, longest still pending, typical per person.
   "Closed on time %" was removed: tick-offs lag delivery (median 7 days after due), so it isn't trustworthy yet.
 - Mismatches (ticked off in Basecamp but not Done in sheet, and the reverse) are listed under "To fix in the sheet".
@@ -71,14 +72,19 @@ Never change `index.html` from the task — layout changes are made by hand and 
 ## Team changes
 `TEAM_EXITS` at the top of the script in `index.html` lists people who have left:
 `{name:"Jatin", year:2026, month:10}` (month 10 = November). From that month on their name is removed
-from DRs; a DR with no one left shows as "Not assigned" and is flagged under "Gaps in the sheet" as needing a new owner.
+from DRs; a DR with no one left shows as "Not assigned" and is flagged under "To fix in the sheet" as needing a new owner.
 Months before keep their name. To add someone, add a line there and republish `index.html`.
 
-## Known data gaps (worth fixing in the sheet)
-- No "delivered on" date, so on-time delivery % can't be measured — only "overdue right now". Adding a `Delivered On` column would unlock real TAT / on-time %.
-- Nov tab: many DRs without owner/status (shown as "Sheet hygiene" on the page).
+## Known data gaps
+- Close dates come from Basecamp tick-offs, which are also manual (often the requester ticks it, sometimes in batch clean-ups). Reliable only if the team agrees when to tick off.
+- Nov tab: many DRs without owner/status (shown under "To fix in the sheet" on the page).
 - Some duplicate rows (e.g. "Acne patch UGC", "Strobe Cream" in July).
 - Each new month needs a tab named exactly after the month (e.g. `December`) with the same header row; the page picks it up automatically.
+
+## Working rules (from Cecil)
+- Make changes locally in the Dashboard Tracker folder first; push to Vercel only when Cecil says it's final.
+- Owner/assignee names come from the sheet's Assigned To. Don't show them where Cecil has asked them removed (Closed DRs).
+- Wording: plain and short — Done / Pending / Late, "Not started", "Not assigned".
 
 ## Editing the look
 Colours are CSS variables at the top of `index.html` (`--or` = orange, `--bg`, `--panel`).
