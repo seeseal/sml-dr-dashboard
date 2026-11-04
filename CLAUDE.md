@@ -39,7 +39,7 @@ Never change `index.html` from the task — layout changes are made by hand and 
 - Only the left-hand DR columns are read; the "Quick View" summary blocks on the right of the sheet are ignored (their formulas don't add up — e.g. Oct shows Done 47 + In Progress 5 + Open 12 + Scrapped 4 = 68 against a total of 60).
 - Dates come from the Excel export as real dates with years. Formula cells (e.g. a row that is `=A82`) are read as their values.
 - DR names link to their Basecamp to-do (the hyperlink on the name cell in the sheet).
-- Status: Done/Approved → **Delivered**. NA/Scrapped → **Scrapped** (excluded from open/overdue). Blank → "No status" (counted as open, not started).
+- Status: Done/Approved → **Done**. NA/Scrapped → **Dropped** (not counted as pending or late). Blank → "No status" (counted as pending). Page wording: Done / Pending / Late; "In review" = Pending Review in the sheet.
 - **Overdue** = open and due date before today (IST, at viewing time).
 - Assigned To with several names ("Jatin, Cecil") counts for each person. Blank → "No owner".
 - Brand normalised: Pop → SUGAR POP, Quench → QUENCH; blank brand → "No brand" (June tab has no brands filled).
