@@ -483,14 +483,14 @@
     $("cl-n").textContent= list.length ? "Most recently closed first" : "";
     if(!list.length){ host.append(el("div","empty","No DRs ticked off in Basecamp for this view yet.")); return; }
     const tb=el("table"), hd=el("tr");
-    [["DR",""],["Brand","hide-m"],["Owner","hide-m"],["Created","hide-m"],["Due","hide-m"],["Closed",""],["Closed by","hide-m"],["Took","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
+    [["DR",""],["Brand","hide-m"],["Created","hide-m"],["Due","hide-m"],["Closed",""],["Closed by","hide-m"],["Took","hide-m"],["","r"]].forEach(([h,c])=>hd.append(el("th",c,h)));
     tb.append(el("thead")); tb.tHead.append(hd); const body=el("tbody"); tb.append(body);
     let showAll=false;
     const draw=()=>{
       body.replaceChildren();
       (showAll?list:list.slice(0,10)).forEach(i=>{
         const tr=el("tr"), cd=istDay(i.bcClosed), took=openedOn(i)!=null?Math.round((cd-openedOn(i))/864e5):null;
-        tr.append(drCell(i), el("td","hide-m",i.brand), el("td","hide-m",i.owners.join(", ")), el("td","hide-m",fmt(i.raised)), el("td","hide-m",fmt(i.due)),
+        tr.append(drCell(i), el("td","hide-m",i.brand), el("td","hide-m",fmt(i.raised)), el("td","hide-m",fmt(i.due)),
           el("td",null,fmtDT(i.bcClosed)), el("td","hide-m",i.closedBy||"—"), el("td","hide-m",took==null||took<0?"—":plural(took,"day")));
         const tc=el("td","r"); let tag;
         if(i.bcBatch) tag=el("span","tag","Batch clean-up");
