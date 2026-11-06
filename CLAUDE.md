@@ -27,6 +27,13 @@ Dark theme, black + orange (#FF6B1A). Layout follows a dark sidebar + card grid.
 
 ## Daily refresh (scheduled task "DR Dashboard daily refresh", twice a day: 10:36 AM and 4:36 PM IST)
 Runs fully on its own (automatic approval) — no one needs to approve or answer anything.
+Task id `trig_01SrsqZswS4JkuuW4R7hr5zY`, created 6 Nov 2026 from a Claude coding session that has this repo attached
+with push access; notifies only on failure.
+**Why it was recreated (6 Nov):** a "v2" task created from a plain chat on 5 Nov had no repo access and no automatic
+approval — every run reported "success" but its `git push` was refused, so the site stayed on old data. A one-time
+test task created from the coding session pushed fine, so that became the daily task and v2 was deleted.
+Rule: create or recreate this task only from a session where `git push` to this repo works, confirm it shows
+automatic approval, and test with a one-time run (check a new commit + new `fetchedAt` on the live `data.js`).
 1. Google Drive `download_file_content` on the sheet id with exportMimeType xlsx. The result is large, so it is
    saved to a file (JSON with base64 `content`) — nothing is retyped by hand.
 2. Clone this repo. Refresh the Basecamp cache: curl `/api/basecamp/closed` (with `?full=1` on Mondays, IST) and run
@@ -185,6 +192,11 @@ Months before keep their name. To add someone, add a line there and republish `i
 - **Basecamp cache** (`api/basecamp/closed.js`, `bc_closed.json`, `scripts/update_bc_cache.py`, `vercel.json`):
   ticked-off to-dos are read from `bc_closed.json` (241 on 4 Nov), so the daily lookup asks Basecamp only about open
   to-dos (38 instead of 279). `?full=1` re-checks everything and drops reopened to-dos from the cache.
+
+## Sharing the setup with other teams
+A starter kit (this code with every team-specific value replaced by `SETUP` / `YOUR_` placeholders, sample data, and
+`SETUP-GUIDE.md` written for Claude to follow) is in the Dashboard Tracker folder: `dr-dashboard-starter-kit/` and
+`dr-dashboard-starter-kit.zip` (made 6 Nov 2026). If the code here changes a lot, rebuild the kit from it.
 
 ## Working rules (from Cecil)
 - Make changes locally in the Dashboard Tracker folder first; push to Vercel only when Cecil says it's final.
