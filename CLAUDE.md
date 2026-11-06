@@ -5,7 +5,10 @@ Owner: Cecil Sam Mathew (video@vellvette.com)
 ## What this is
 A one-page dashboard of the Video Team's DR (deliverable request) list, by month,
 for managers. Goal: understand the month in 5 seconds.
-Dark theme, black + orange (#FF6B1A). Layout follows a dark sidebar + card grid.
+Black + orange (#FF6B1A). Since 6 Nov 2026: "glass on warm gradient" look (after an Admin Dashboard V5 reference Cecil shared) —
+fixed dark→orange gradient, frosted light cards with dark text (Done card dark), floating top bar with month pill tabs,
+capsule bar chart for Monthly trend (selected month orange, dashed average), segmented half-circle gauge for Status.
+Card text colours come from CSS variables re-set inside `.card` (`--fg`/`--muted`/`--dim` → ink colours).
 
 - Live site (Vercel): https://videoteam-dr.vercel.app (also https://vt-dr-dashboard-k7q2-ten.vercel.app)  (project `vt-dr-dashboard-k7q2`, id `prj_Y7bt3CWuj6wIG40dWEeRAHVjUB9L`)
   Deploys automatically on every push to `main` of GitHub `seeseal/sml-dr-dashboard`. Public URL — share only with the people who need it.
