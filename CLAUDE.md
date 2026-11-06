@@ -195,8 +195,8 @@ Months before keep their name. To add someone, add a line there and republish `i
 
 ## Sharing the setup with other teams
 A starter kit (this code with every team-specific value replaced by `SETUP` / `YOUR_` placeholders, sample data, and
-`SETUP-GUIDE.md` written for Claude to follow) is in the Dashboard Tracker folder: `dr-dashboard-starter-kit/` and
-`dr-dashboard-starter-kit.zip` (made 6 Nov 2026). If the code here changes a lot, rebuild the kit from it.
+`SETUP-GUIDE.md` written for Claude to follow) is in the Dashboard Tracker folder: `dr-dashboard-starter-kit.zip`
+(guide inside) and a loose copy `SETUP-GUIDE (for other teams).md` (made 6 Nov 2026). If the code here changes a lot, rebuild the kit from it.
 
 ## Working rules (from Cecil)
 - Make changes locally in the Dashboard Tracker folder first; push to Vercel only when Cecil says it's final.
