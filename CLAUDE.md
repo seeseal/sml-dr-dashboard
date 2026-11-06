@@ -25,7 +25,7 @@ Dark theme, black + orange (#FF6B1A). Layout follows a dark sidebar + card grid.
 | `vercel.json`, `robots.txt` | Static hosting: no-index headers, `data.js` never cached. |
 | `CLAUDE.md` | This file. |
 
-## Daily refresh (scheduled task "DR Dashboard daily refresh", 10:36 AM IST so it is ready by 11)
+## Daily refresh (scheduled task "DR Dashboard daily refresh", twice a day: 10:36 AM and 4:36 PM IST)
 Runs fully on its own (automatic approval) — no one needs to approve or answer anything.
 1. Google Drive `download_file_content` on the sheet id with exportMimeType xlsx. The result is large, so it is
    saved to a file (JSON with base64 `content`) — nothing is retyped by hand.
